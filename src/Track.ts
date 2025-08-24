@@ -2,19 +2,23 @@ import type {
 	MidiControllerEvent,
 	MidiEndOfTrackEvent,
 	MidiEvent,
-	MidiNoteOffEvent, MidiNoteOnEvent,
-	MidiPitchBendEvent, MidiTrackNameEvent
+	MidiNoteOffEvent,
+	MidiNoteOnEvent,
+	MidiPitchBendEvent,
+	MidiTextEvent,
+	MidiTrackNameEvent,
 } from "midi-file";
 
 // Used to add `absoluteTime` property to 'MidiEvent's.
-type WithAbsoluteTime = { absoluteTime: number; };
+type WithAbsoluteTime = { absoluteTime: number };
 
 import { insert } from "./BinarySearch";
 import { ControlChange, ControlChangeInterface } from "./ControlChange";
 import { ControlChangesJSON, createControlChanges } from "./ControlChanges";
 import { PitchBend, PitchBendInterface, PitchBendJSON } from "./PitchBend";
+import { Meta, MetaInterface } from "./Meta";
 
-import { Header } from "./Header";
+import { Header, MetaEvent } from "./Header";
 import { Instrument, InstrumentJSON } from "./Instrument";
 import { Note, NoteConstructorInterface, NoteJSON } from "./Note";
 
@@ -38,6 +42,11 @@ export class Track {
 	 * The track's note events.
 	 */
 	notes: Note[] = [];
+
+	/**
+	 * Additional meta events.
+	 */
+	meta: MetaEvent[] = [];
 
 	/**
 	 * The channel number of the track. Applies this channel
@@ -137,10 +146,20 @@ export class Track {
 				});
 			});
 
+			const metaEvents = trackData.filter(
+				(event) => event.type === "text"
+			) as (MidiTextEvent & WithAbsoluteTime)[];
+			metaEvents.forEach((event) => {
+				this.addMeta({
+					ticks: event.absoluteTime,
+					text: event.text,
+				});
+			});
+
 			const endOfTrackEvent:
 			| (MidiEndOfTrackEvent & WithAbsoluteTime)
 			| undefined = trackData.find(
-				(event): event is (MidiEndOfTrackEvent & WithAbsoluteTime) =>
+				(event): event is MidiEndOfTrackEvent & WithAbsoluteTime =>
 					event.type === "endOfTrack"
 			);
 
@@ -212,6 +231,19 @@ export class Track {
 		const pb = new PitchBend({}, header);
 		Object.assign(pb, props);
 		insert(this.pitchBends, pb, "ticks");
+		return this;
+	}
+
+	/**
+	 * Add a meta event to the track.
+	 */
+	addMeta(
+		props: Omit<MetaInterface, "ticks"> | Omit<MetaInterface, "time">
+	): this {
+		const header = privateHeaderMap.get(this);
+		const meta = new Meta({}, header);
+		Object.assign(meta, props);
+		insert(this.meta, meta, "ticks");
 		return this;
 	}
 
@@ -295,7 +327,7 @@ export class Track {
 			this.addPitchBend({
 				value: pb.value,
 				ticks: pb.value,
-				time: pb.time
+				time: pb.time,
 			});
 		});
 	}

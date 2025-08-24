@@ -106,10 +106,7 @@ context("Track", () => {
 				expect(track.controlChanges).to.be.an("object");
 			});
 			expect(midi.tracks[1].controlChanges).to.include.keys([
-				10,
-				64,
-				7,
-				91,
+				10, 64, 7, 91,
 			]);
 			expect(midi.tracks[1].controlChanges[64]).to.have.length(326);
 		});
@@ -304,6 +301,30 @@ context("Track", () => {
 
 			expect(midi.tracks[0].pitchBends[25].ticks).to.equal(480);
 			expect(midi.tracks[0].pitchBends[25].value).to.be.closeTo(1, 0.01);
+		});
+	});
+
+	describe("Meta Events", () => {
+		it("can add values", () => {
+			const midi = new Midi();
+			const track = midi.addTrack();
+			track.addMeta({
+				text: "text",
+				ticks: 1,
+			});
+			expect(track.meta).to.have.length(1);
+		});
+
+		it("can parse values from midi file", () => {
+			const midi = new Midi(
+				readFileSync(resolve(__dirname, "./midi/metaTest.mid"))
+			);
+			expect(midi.tracks[0].meta[0].text).to.equal("text1");
+			expect(midi.tracks[0].meta[0].ticks).to.equal(0);
+			expect(midi.tracks[0].meta[1].text).to.equal("text2");
+			expect(midi.tracks[0].meta[1].ticks).to.equal(960);
+			expect(midi.tracks[0].meta[2].text).to.equal("text3");
+			expect(midi.tracks[0].meta[2].ticks).to.equal(1860);
 		});
 	});
 });
